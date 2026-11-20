@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marketing Box JSON Generator</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="container app">
+      <header class="mb-4 d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div>
+          <h1 class="h3 fw-semibold mb-1">Marketing Box JSON Generator</h1>
+          <p class="text-muted mb-0">
+            Paste your spreadsheet, review the suggested slot layout, download one JSON per box.
+          </p>
+        </div>
+        <button
+          id="btn-rules"
+          class="btn btn-sm btn-outline-secondary"
+          type="button"
+          aria-expanded="false"
+          aria-controls="rules-panel"
+        >
+          Layout rules &amp; template
+        </button>
+      </header>
+
+      <!-- Layout rules + template (hidden by default, toggled from the header) -->
+      <section id="rules-panel" class="panel mb-5" hidden>
+        <div class="row g-4">
+          <div class="col-lg-5">
+            <h2 class="panel-title">Layout rules</h2>
+            <div class="rule-grid mb-3" aria-hidden="true">
+              <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span
+              ><span>G</span><span>H</span>
+            </div>
+            <ul class="small text-muted ps-3 mb-3">
+              <li>2x1 assets span a full row (<strong>A+B, C+D, E+F, G+H</strong>) so they only start on A, C, E, G.</li>
+              <li>1x1 assets fit any free slot.</li>
+              <li>Misplaced assets move to the closest valid slot (forward first).</li>
+              <li>JSON files are named from the page URL: <code>/todays-deals/shop-clothing-intimates-1/</code> → <code>TodaysDeals_ShopClothingIntimates-1.json</code>.</li>
+            </ul>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="opt-beside" checked />
+              <label class="form-check-label small" for="opt-beside">
+                Avoid stacking: no 1x1 directly below a 2x1, and no 1x1 directly above or below another 1x1
+                <span class="text-muted">(2x1 in A blocks C and D → D suggests F; 1x1s in A and C → C suggests E)</span>
+              </label>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <h2 class="panel-title">Template (new.json · 11/22)</h2>
+            <textarea
+              id="template"
+              class="form-control font-mono"
+              rows="12"
+              spellcheck="false"
+            ></textarea>
+            <div id="template-status" class="small mt-1"></div>
+            <div class="small text-muted mt-1">
+              The first tile is the prototype; its keys and order are kept for every generated tile.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1. Paste -->
+      <section class="mb-5">
+        <div class="d-flex align-items-baseline justify-content-between mb-2">
+          <h2 class="step-title"><span class="step-num">1</span>Paste spreadsheet</h2>
+          <div class="d-flex gap-2">
+            <button id="btn-snapshot" class="btn btn-sm btn-dark" type="button" hidden title="The 46 live files from 11/19 · app/marketing-box (top-level JSON only)">
+              Current state: 11/19
+            </button>
+            <button id="btn-current" class="btn btn-sm btn-outline-secondary" type="button" title="Pick the folder of marketing box JSON files that are live today">
+              Load folder…
+            </button>
+            <button id="btn-current-clear" class="btn btn-sm btn-outline-secondary" type="button" hidden>
+              Clear current
+            </button>
+            <input id="current-files" type="file" webkitdirectory multiple hidden />
+            <button id="btn-sample" class="btn btn-sm btn-outline-secondary" type="button">
+              Load sample
+            </button>
+            <button id="btn-clear" class="btn btn-sm btn-outline-secondary" type="button">
+              Clear
+            </button>
+          </div>
+        </div>
+        <textarea
+          id="paste"
+          class="form-control font-mono"
+          rows="7"
+          spellcheck="false"
+          placeholder="Copy the cells from your spreadsheet (include the header row) and paste here.&#10;Expected columns: Marketing Box · Slot · Asset · Destination (Size, Action, Title optional)"
+        ></textarea>
+        <div id="parse-status" class="small text-muted mt-2"></div>
+        <div id="current-status" class="small text-muted mt-1"></div>
+
+        <details id="mapping-wrap" class="mt-3" hidden>
+          <summary class="small fw-semibold">Column mapping</summary>
+          <div id="mapping" class="row g-3 mt-1"></div>
+        </details>
+      </section>
+
+      <!-- 2. Output -->
+      <section class="mb-5">
+        <div class="d-flex flex-wrap align-items-baseline justify-content-between mb-2">
+          <h2 class="step-title mb-0"><span class="step-num">2</span>Review &amp; download</h2>
+          <div id="bulk-actions" class="d-flex flex-wrap align-items-center gap-2" hidden>
+            <div id="changed-wrap" class="form-check form-switch small mb-0 me-2" hidden>
+              <input class="form-check-input" type="checkbox" id="only-changed" checked />
+              <label class="form-check-label" for="only-changed">Only changed boxes</label>
+            </div>
+            <button id="btn-zip" class="btn btn-sm btn-dark" type="button">Download all (.zip)</button>
+            <button id="btn-xlsx" class="btn btn-sm btn-outline-secondary" type="button">Export slots (.xlsx)</button>
+          </div>
+        </div>
+        <div id="results">
+          <p class="text-muted">Nothing to show yet. Paste a spreadsheet above.</p>
+        </div>
+      </section>
+
+      <div id="test-results" class="small font-mono"></div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="current-state/2026-11-19.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
